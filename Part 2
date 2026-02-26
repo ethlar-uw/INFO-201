@@ -1,0 +1,229 @@
+---
+title: "Final Project-Join Data"
+author: "Ethan Larson, Michael Jiang, Faruk Altun"
+date: 02-16-2026
+format:
+  html:
+    embed-resources: true
+---
+
+## Packages
+
+```{r}
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+```
+
+## Part 1 Finding Data
+
+## Section I: First Dataset Context
+
+```{r}
+trolls_df <- read.csv("https://raw.githubusercontent.com/fivethirtyeight/russian-troll-tweets/refs/heads/master/IRAhandle_tweets_1.csv")
+```
+
+### Data Source
+
+### Data Meaning
+
+### Data Join Planning
+
+### Data Observations
+
+### Data Issues
+
+Explain dataset 1:
+
+Where data came from
+
+Who collected it
+
+What it measures
+
+Why it’s reliable
+
+What each row represents
+
+Why it’s relevant
+
+What you’ll join on
+
+What potential join issues exist
+
+What data quality issues exist
+
+## code block for dataset1 use glimpse()
+
+```{r}
+glimpse(trolls_df)
+```
+
+Explain glimpse(1):
+
+How many rows
+
+How many columns
+
+What types of variables
+
+Anything interesting
+
+Anything concerning
+
+## Section II: First Dataset Context
+
+```{r}
+users_df <- read.csv("https://raw.githubusercontent.com/rrsr28/Twitter-Bot-Detection/heads/main/Datasets/Twitter_Users.csv")
+```
+
+### Data Source
+
+### Data Meaning
+
+### Data Join Planning
+
+### Data Observations
+
+### Data Issues
+
+EXPLAIN DATASET 2:
+
+Where data came from
+
+Who collected it
+
+What it measures
+
+Why it’s reliable
+
+What each row represents
+
+Why it’s relevant
+
+What you’ll join on
+
+What potential join issues exist
+
+What data quality issues exist
+
+## code block for dataset2 use glimpse()
+
+```{r}
+glimpse(users_df)
+```
+
+Explain what glimpse(2):
+
+How many rows
+
+How many columns
+
+What types of variables
+
+Anything interesting
+
+Anything concerning
+
+## Part 2: Joining
+
+### Cleaning the data
+
+#### *Here I clean up the data to make it easier to work with, only selecting the columns that we'll find most particularly useful.*
+
+```{r}
+clean_trolls_df <- trolls_df |> select(author, following, followers, region)
+# glimpse(clean_trolls_df)
+
+clean_users_df <- users_df |> select(Twitter_User_Name, Following, Followers, Location)
+# glimpse(clean_users_df)
+```
+
+### Joining the data
+
+#### *Then now, we full join the two data sets, matching up the names of the columns.*
+
+```{r}
+joined_df <- full_join(clean_trolls_df, clean_users_df, by = c("author" = "Twitter_User_Name",   "following"="Following", "followers"="Followers", "region"="Location"))
+glimpse(joined_df)
+```
+
+#### *It may be hard to tell, but we know it worked as the size of the two data sets (243,891 and 96) have been added together to make our new row size of 243,987.*
+
+## Part 3 Data Documentation
+
+### Codebook and Column Information
+
+Dataset 1 consists of nearly 3 million tweets sent between 2012 and 2018 from Twitter accounts linked to the Russian Internet Research Agency (IRA). The data was shared by FiveThirtyEight and originally collected by Clemson University researchers Darren Linvill and Patrick Warren using Salesforce’s Social Studio tool. The list of accounts was based on official handles that Twitter provided to the U.S. Congress in 2017 and 2018. Because the dataset is grounded in academic research and government-released information, it represents a credible and real-world record of coordinated social media activity. Each row represents a single tweet and includes metadata such as the author, region, language, follower count, and publish date, which allows us to analyze patterns in troll account behavior.
+
+We were unable to locate an official codebook for the second dataset. Because the dataset was compiled from publicly available social media metadata, formal documentation was not provided. We relied on column names and contextual knowledge to interpret the variables.
+
+### Key Variables for Analysis
+
+followers
+
+following
+
+region
+
+follower_status
+
+avg_followers
+
+total_accounts
+
+The most relevant variables for our analysis include followers, following, region, and follower_status, total_accounts. The followers variable captures account popularity, while region allows us to examine geographic location/region. We also created a derived variable called follower_status to categorize accounts into Low, Medium, and High follower groups, which helps simplify comparisons across different popularity levels.
+
+### 150-Word Bias Statement
+
+While the data set we have is very big and highly documented with various classifying variables and information on the different sources, there could still be bias present. Bias might come in with Salesforce's Social Studio tool that was used when collecting and classifying or filtering out data, and possibly by the researchers themselves. Furthermore, there could be bias present in the pools that information was taken from, since the first dataset consists of only IRA-linked accounts. Twitter provided this information to congress, so there could definitely be a skewed data set based on what kind of information Twitter wanted to provide Congress. In the second dataset, we know that there's only publically avilable social media metadata, so there is bias towards the type of posts that are publically available. This is also a bias worth considering. For the second dataset, since we didn't have as much documentation, there could be unknown biases affecting our data as well.
+
+## Part 4 Data Wrangling
+
+#### *Created a new column dividing followers rates in 3 categories as high, medium, and low in order to classify them by their popularity which gave us a clearer comparison category.*
+
+```{r}
+joined2_df <- joined_df |>
+  mutate(
+    follower_status = case_when(
+      followers < quantile(followers, 0.33, na.rm = TRUE) ~ "Low",
+      followers < quantile(followers, 0.66, na.rm = TRUE) ~ "Medium",
+      TRUE ~ "High")
+  )
+
+glimpse(joined2_df)
+```
+
+#### *Created a summarized dataset by grouping the data by author, region, and follower status to calculate average followers, average following, and the number of observations per group.*
+
+```{r}
+summary_df <- joined2_df |>
+  
+  group_by(author, region, follower_status) |>
+  summarize(
+    avg_followers = mean(followers, na.rm = TRUE),
+    avg_following = mean(following, na.rm = TRUE),
+    total_accounts = n(),
+    .groups = "drop"
+  )
+
+glimpse(summary_df)
+
+```
+
+#### *created a scatter plot using the summarized dataset to visualize how average follower counts vary across regions and follower status categories, allowing us to compare popularity levels by region in a clear and structured way.*
+
+```{r}
+ggplot(summary_df, aes(x = region, y = avg_followers, color = follower_status)) +
+  geom_point(size = 1.5) +
+  coord_flip() +
+  labs(
+    title = "Average Followers by Region and Follower Level",
+    x = "Region",
+    y = "Average Followers",
+    color = "Follower Level"
+  ) +
+  theme_minimal() +
+  theme(axis.text.y = element_text(size = 5))
+
+```
